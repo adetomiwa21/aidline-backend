@@ -43,13 +43,27 @@ const admin = Keypair.fromSecret(adminSecret);
 
 // Chain helpers
 
+/** Retries a network call a few times. Testnet RPC and Friendbot drop requests now and then. */
+async function retry<T>(fn: () => Promise<T>, attempts = 5): Promise<T> {
+  for (let i = 1; ; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (i >= attempts) throw err;
+      await new Promise((r) => setTimeout(r, 1500 * i));
+    }
+  }
+}
+
 async function fund(kp: Keypair) {
-  const res = await fetch(`https://friendbot.stellar.org?addr=${kp.publicKey()}`);
-  if (!res.ok && res.status !== 400) throw new Error(`friendbot failed for ${kp.publicKey()}`);
+  await retry(async () => {
+    const res = await fetch(`https://friendbot.stellar.org?addr=${kp.publicKey()}`);
+    if (!res.ok && res.status !== 400) throw new Error(`friendbot failed for ${kp.publicKey()}`);
+  });
 }
 
 async function invoke(signer: Keypair, method: string, ...args: xdr.ScVal[]): Promise<unknown> {
-  const account = await server.getAccount(signer.publicKey());
+  const account = await retry(() => server.getAccount(signer.publicKey()));
   const tx = new TransactionBuilder(account, {
     fee: BASE_FEE,
     networkPassphrase: config.networkPassphrase,
@@ -57,12 +71,21 @@ async function invoke(signer: Keypair, method: string, ...args: xdr.ScVal[]): Pr
     .addOperation(contract.call(method, ...args))
     .setTimeout(120)
     .build();
-  const prepared = await server.prepareTransaction(tx);
+  const prepared = await retry(() => server.prepareTransaction(tx));
   prepared.sign(signer);
-  const sent = await server.sendTransaction(prepared);
-  if (sent.status === 'ERROR') throw new Error(`${method} rejected`);
+  const hash = Buffer.from(prepared.hash()).toString('hex');
+
+  // Resending the same signed transaction is safe: it can only land once.
+  // A resend after it already landed is rejected, so check by hash before failing.
+  const sent = await retry(() => server.sendTransaction(prepared));
+  if (sent.status === 'ERROR') {
+    const existing = await retry(() => server.getTransaction(hash));
+    if (existing.status === rpc.Api.GetTransactionStatus.NOT_FOUND) {
+      throw new Error(`${method} rejected`);
+    }
+  }
   for (let i = 0; i < 40; i++) {
-    const res = await server.getTransaction(sent.hash).catch(() => null);
+    const res = await server.getTransaction(hash).catch(() => null);
     if (res && res.status === rpc.Api.GetTransactionStatus.SUCCESS) {
       return res.returnValue ? scValToNative(res.returnValue) : undefined;
     }
@@ -82,11 +105,13 @@ const kind = (k: 'Emergency' | 'Climate') => xdr.ScVal.scvVec([xdr.ScVal.scvSymb
 // API helpers
 
 async function post<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(`${API}${path}`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  const res = await retry(() =>
+    fetch(`${API}${path}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+  );
   if (!res.ok) throw new Error(`POST ${path} failed: ${res.status} ${await res.text()}`);
   return (await res.json()) as T;
 }
@@ -105,22 +130,22 @@ async function proof(campaignId: bigint, milestoneIndex: number, note: string): 
 
 const verifierProfiles = [
   {
-    orgName: 'Delta Field Monitors (demo)',
-    country: 'Nigeria',
+    orgName: 'Caribbean Field Verification (demo)',
+    country: 'Haiti',
     description:
-      'Fictional verifier for this demo. Represents a local monitoring group that visits sites, photographs deliveries and checks receipts against budgets.',
+      'Fictional verifier for this demo. Represents a local monitoring group in the Caribbean that visits sites, photographs deliveries and checks receipts against budgets.',
   },
   {
-    orgName: 'East Africa Impact Audit (demo)',
-    country: 'Kenya',
+    orgName: 'Asia Pacific Impact Audit (demo)',
+    country: 'Philippines',
     description:
       'Fictional verifier for this demo. Represents an independent auditor that confirms installations and interviews the communities served.',
   },
   {
-    orgName: 'Coastal Response Verification (demo)',
-    country: 'Mozambique',
+    orgName: 'Horn and West Africa Monitors (demo)',
+    country: 'Kenya',
     description:
-      'Fictional verifier for this demo. Represents a disaster response network that confirms repairs and distributions after storms.',
+      'Fictional verifier for this demo. Represents a field network that confirms water deliveries, repairs and distributions.',
   },
 ];
 
@@ -130,6 +155,7 @@ interface DemoCampaign {
   title: string;
   summary: string;
   location: string;
+  organizer: string;
   story: string[];
   milestones: number[];
   days: number;
@@ -142,30 +168,32 @@ const campaigns: DemoCampaign[] = [
   {
     kind: 'Emergency',
     verifier: 0,
-    title: 'Clean water for flood displaced families in Lokoja',
+    title: 'Clean water after flooding in Les Cayes',
     summary:
-      'Water tanks, purification tablets and hygiene kits for families sheltering in camps after river flooding.',
-    location: 'Lokoja, Nigeria',
+      'Water storage, purification tablets and hygiene kits for families sheltering in schools after coastal flooding.',
+    location: 'Les Cayes, Haiti',
+    organizer: 'Haitian community association, Montreal (demo)',
     story: [
-      'Seasonal flooding where the Niger and Benue rivers meet regularly forces families from riverside homes into temporary camps, where safe drinking water runs out first.',
-      'This campaign funds water storage tanks for three camps, purification tablets for six weeks, and hygiene kits for the most crowded sites. Each milestone is a delivery the verifier can photograph and count.',
+      'When heavy rains flood the southern coast, families move into schools and churches where safe drinking water runs out first. Relatives in Montreal are usually the first to send help, but rarely see where it goes.',
+      'This campaign funds water tanks for three shelters, purification tablets for six weeks, and hygiene kits for the most crowded sites. Each milestone is a delivery the verifier can photograph and count.',
     ],
     milestones: [400, 600, 500],
     days: 21,
     donations: [500, 350, 250],
     releases: [
-      'Forty 1,000 litre water tanks delivered and installed across three camps. Delivery notes and site photos checked against the supplier invoice.',
+      'Forty 1,000 litre water tanks delivered and installed across three shelters. Delivery notes and site photos checked against the supplier invoice.',
     ],
   },
   {
     kind: 'Climate',
-    verifier: 0,
-    title: 'Mangrove restoration along the Niger Delta coast',
+    verifier: 1,
+    title: 'Mangrove replanting to shield fishing villages in Leyte',
     summary:
-      'Community nurseries and replanting of degraded mangrove along tidal creeks, with survival checks at six months.',
-    location: 'Bonny, Nigeria',
+      'Community nurseries and replanting along the coast, with survival checks at six months.',
+    location: 'Leyte, Philippines',
+    organizer: 'Filipino nurses network, London (demo)',
     story: [
-      'Mangroves protect coastal villages from storm surge and hold far more carbon per hectare than most forests. Many creeks here have lost theirs.',
+      'Mangroves break storm surge before it reaches coastal homes and store far more carbon per hectare than most forests. Many fishing villages here lost theirs.',
       'Funds pay local planters and nursery keepers in stages: nursery setup, first planting, and a survival count six months later. Payment for the last stage depends on how many seedlings survive.',
     ],
     milestones: [800, 800, 1200],
@@ -178,11 +206,12 @@ const campaigns: DemoCampaign[] = [
   {
     kind: 'Climate',
     verifier: 1,
-    title: 'Solar water pumps for smallholder farms in Turkana',
+    title: 'Solar irrigation pumps for farmers in Rangpur',
     summary: 'Replacing diesel pumps with solar irrigation for four farming cooperatives.',
-    location: 'Turkana, Kenya',
+    location: 'Rangpur, Bangladesh',
+    organizer: 'Bangladeshi diaspora, Toronto (demo)',
     story: [
-      'Farmers here depend on diesel pumps that are expensive to run and break down often. Solar pumps cut running costs to almost nothing and remove a steady source of emissions.',
+      'Farmers here rely on diesel pumps that are expensive to run and break down often. Solar pumps cut running costs to almost nothing and remove a steady source of emissions.',
       'Each milestone is one cooperative pump installed, tested and handed over.',
     ],
     milestones: [500, 500, 500, 500],
@@ -198,13 +227,31 @@ const campaigns: DemoCampaign[] = [
   {
     kind: 'Emergency',
     verifier: 2,
-    title: 'Roof repairs after cyclone damage in coastal Sofala',
-    summary:
-      'Roofing sheets, timber and local labour to make damaged homes weatherproof before the rains.',
-    location: 'Beira, Mozambique',
+    title: 'Water trucking for pastoralist families in Gedo',
+    summary: 'Emergency water deliveries to villages cut off by drought until the rains return.',
+    location: 'Gedo, Somalia',
+    organizer: 'Somali community, Minneapolis (demo)',
     story: [
-      'After a strong cyclone, the most common damage is to roofs. Families who cannot repair them before the rainy season face a second disaster.',
-      'The first milestone buys materials in bulk. The second pays local builders per completed roof, confirmed by the verifier house by house.',
+      'In a failed rainy season, shallow wells dry up and families walk for days to find water for people and livestock.',
+      'This campaign pays for water trucking in two phases. Each phase is confirmed by the verifier with delivery logs signed by village committees.',
+    ],
+    milestones: [600, 600],
+    days: 30,
+    donations: [400, 300],
+    releases: [
+      'First phase complete: 52 truck deliveries to nine villages, logged and countersigned by each village water committee.',
+    ],
+  },
+  {
+    kind: 'Emergency',
+    verifier: 0,
+    title: 'Hurricane roof repairs in St Elizabeth',
+    summary: 'Roofing sheets, timber and local labour to make damaged homes weatherproof again.',
+    location: 'St Elizabeth, Jamaica',
+    organizer: 'Jamaican diaspora, Birmingham (demo)',
+    story: [
+      'After a hurricane, the most common damage is to roofs. Families who cannot repair them before the next rains face a second disaster.',
+      'The first milestone buys materials in bulk. The second pays local builders per completed roof, confirmed house by house.',
     ],
     milestones: [300, 700],
     days: 14,
@@ -213,13 +260,14 @@ const campaigns: DemoCampaign[] = [
   },
   {
     kind: 'Climate',
-    verifier: 1,
-    title: 'Rainwater harvesting for rural schools',
-    summary: 'Gutters and storage tanks so schools have water through the dry season.',
-    location: 'Marsabit, Kenya',
+    verifier: 2,
+    title: 'Rainwater harvesting for schools in the Upper East',
+    summary: 'Gutters and storage tanks so rural schools have water through the dry season.',
+    location: 'Bolgatanga, Ghana',
+    organizer: 'Ghanaian diaspora, Houston (demo)',
     story: [
-      'Schools here lose pupils every dry season as children are kept home to fetch water. Roof catchment and storage can carry a school through the driest months.',
-      'This demo campaign was cancelled by its creator after a government programme covered the same schools, so donors could reclaim their funds.',
+      'Schools lose pupils every dry season as children are kept home to fetch water. Roof catchment and storage can carry a school through the driest months.',
+      'This demo campaign was cancelled by its organisers after a government programme covered the same schools, so donors could reclaim their funds.',
     ],
     milestones: [600, 900],
     days: 30,
@@ -263,6 +311,7 @@ async function main() {
       title: c.title,
       summary: c.summary,
       location: c.location,
+      organizer: c.organizer,
       description: [...c.story, DEMO_NOTE].join('\n\n'),
       category: c.kind === 'Emergency' ? 'emergency' : 'climate',
     });
