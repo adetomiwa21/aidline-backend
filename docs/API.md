@@ -95,6 +95,12 @@ The same fields, plus `metadata.description` and a milestone timeline:
 
 Paginated `{ items: [{ donor, amount, txHash, createdAt }] }`, newest first.
 
+## Releases
+
+### `GET /releases`
+
+Recent milestone payouts across all campaigns, newest first. Each item has `campaignId`, `campaignTitle`, `location`, `kind`, `index`, `amount`, `releasedAt`, `txHash`, `verifier`, `verifierName`, `proofUri` and `proof`. Paginated with `limit` and `offset`.
+
 ## Metadata
 
 ### `POST /metadata`
