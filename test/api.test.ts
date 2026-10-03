@@ -189,6 +189,7 @@ describe('API', () => {
       events.created(0n, campaign.creator),
       events.donated(0n, account(), 500n),
       events.released(0n, 0, 300n, 'ipfs://p'),
+      events.refunded(0n, account(), 50n),
     ]);
     const stats = (await app.inject({ url: '/stats' })).json();
     expect(stats).toMatchObject({
@@ -196,6 +197,7 @@ describe('API', () => {
       activeCampaigns: 1,
       totalDonated: '500',
       totalReleased: '300',
+      totalRefunded: '50',
       donors: 1,
       milestonesVerified: 1,
     });
