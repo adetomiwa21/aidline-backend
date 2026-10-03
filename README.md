@@ -50,9 +50,19 @@ Variables are prefixed with `AIDLINE_` on purpose: the Stellar CLI reads `STELLA
 
 |          |                                                                                                                             |
 | -------- | --------------------------------------------------------------------------------------------------------------------------- |
-| Contract | `CBV6XOB66LTO4QCIXYNEVAY5ZGIWAWIDFCCFCW33NJ5A23R7YAFWKLX4`                                                                  |
+| Contract | `CCONZEJF7ZQPC2HPM36WJYCDJAWEZ4EHESV3AEWSQMVX7LWVHYXKTMBW`                                                                  |
 | Token    | Native XLM (`CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC`)                                                     |
-| Explorer | [stellar.expert](https://stellar.expert/explorer/testnet/contract/CBV6XOB66LTO4QCIXYNEVAY5ZGIWAWIDFCCFCW33NJ5A23R7YAFWKLX4) |
+| Explorer | [stellar.expert](https://stellar.expert/explorer/testnet/contract/CCONZEJF7ZQPC2HPM36WJYCDJAWEZ4EHESV3AEWSQMVX7LWVHYXKTMBW) |
+
+## Demo data
+
+`npm run seed:demo` fills a fresh deployment with five clearly labelled demo campaigns (emergency and climate, open, completed and cancelled), three fictional verifiers and a few donors. It needs the contract admin key:
+
+```sh
+SEED_ADMIN_SECRET=S... npm run seed:demo
+```
+
+Generated account keys are saved to `.seed-accounts.json`, which is gitignored. Import a verifier or donor key into Freighter to try those roles in the app.
 
 ## Scripts
 
