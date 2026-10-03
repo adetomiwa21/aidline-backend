@@ -164,6 +164,25 @@ describe('API', () => {
     expect(items).toEqual([expect.objectContaining({ address, orgName: 'Red Relief Network' })]);
   });
 
+  it('lists recent milestone releases with campaign context', async () => {
+    const meta = (await app.inject({ method: 'POST', url: '/metadata', payload: metadata })).json();
+    const campaign = chainCampaign({ metadataUri: meta.uri, raised: 600n, released: 300n });
+    await index(campaign, [
+      events.created(0n, campaign.creator),
+      events.released(0n, 0, 300n, 'ipfs://p'),
+    ]);
+    const { items } = (await app.inject({ url: '/releases' })).json();
+    expect(items).toEqual([
+      expect.objectContaining({
+        campaignId: '0',
+        index: 0,
+        amount: '300',
+        campaignTitle: metadata.title,
+        kind: 'emergency',
+      }),
+    ]);
+  });
+
   it('summarises platform stats', async () => {
     const campaign = chainCampaign({ raised: 500n, released: 300n });
     await index(campaign, [
