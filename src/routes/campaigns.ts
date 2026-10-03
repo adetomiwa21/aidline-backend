@@ -19,7 +19,7 @@ const CAMPAIGN_COLUMNS = `
   c.deadline, c.metadata_uri AS "metadataUri", c.created_at AS "createdAt",
   (SELECT count(DISTINCT d.donor)::int FROM donations d WHERE d.campaign_id = c.id) AS "donorCount",
   CASE WHEN m.id IS NULL THEN NULL ELSE json_build_object(
-    'title', m.title, 'summary', m.summary, 'location', m.location,
+    'title', m.title, 'summary', m.summary, 'location', m.location, 'organizer', m.organizer,
     'category', m.category, 'imageUrl', m.image_url
   ) END AS metadata`;
 

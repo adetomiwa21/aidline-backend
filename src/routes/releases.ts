@@ -10,7 +10,7 @@ export async function releaseRoutes(app: FastifyInstance) {
       `SELECT r.campaign_id AS "campaignId", r.index, r.amount, r.tx_hash AS "txHash",
               r.created_at AS "releasedAt", r.proof_uri AS "proofUri",
               c.kind, c.verifier, v.org_name AS "verifierName",
-              m.title AS "campaignTitle", m.location,
+              m.title AS "campaignTitle", m.location, m.organizer,
               CASE WHEN p.id IS NULL THEN NULL ELSE json_build_object(
                 'id', p.id, 'note', p.note, 'files', p.files) END AS proof
        FROM milestone_releases r
