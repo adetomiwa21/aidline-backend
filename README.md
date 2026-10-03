@@ -76,6 +76,12 @@ Generated account keys are saved to `.seed-accounts.json`, which is gitignored. 
 | `npm run typecheck`           | TypeScript without emitting            |
 | `npm run build` / `npm start` | Production build and run               |
 
+## Deploying
+
+[`render.yaml`](render.yaml) describes the API and a Postgres database for [Render](https://render.com). Create a new Blueprint from this repo and fill in `PUBLIC_BASE_URL` (the service URL), `CORS_ORIGINS` (the frontend URL), `AIDLINE_CONTRACT_ID` and `INDEXER_START_LEDGER`. The `Dockerfile` works on any container host.
+
+Proof uploads are stored on local disk, which is not persistent on most free hosts. Moving them to object storage is tracked as an open issue.
+
 ## Documentation
 
 - [API reference](docs/API.md)
