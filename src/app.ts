@@ -15,6 +15,7 @@ import { donorRoutes } from './routes/donors.js';
 import { metaRoutes } from './routes/meta.js';
 import { metadataRoutes } from './routes/metadata.js';
 import { proofRoutes } from './routes/proofs.js';
+import { releaseRoutes } from './routes/releases.js';
 import { verifierRoutes } from './routes/verifiers.js';
 
 declare module 'fastify' {
@@ -61,6 +62,7 @@ export async function buildApp(
   await app.register(campaignRoutes);
   await app.register(metadataRoutes);
   await app.register(proofRoutes);
+  await app.register(releaseRoutes);
   await app.register(verifierRoutes);
   await app.register(donorRoutes);
 
