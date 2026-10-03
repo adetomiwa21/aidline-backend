@@ -9,10 +9,12 @@ import { account, chainCampaign, CONTRACT_ID, events, resetDb, setupApp } from '
 const { app, db } = (await setupApp()) as { app: FastifyInstance; db: Db };
 
 const metadata = {
-  title: 'Flood relief for Lokoja',
-  summary: 'Clean water and shelter for families displaced by the Niger river floods.',
+  title: 'Clean water after flooding in Les Cayes',
+  summary:
+    'Water storage and purification for families displaced by flooding on the southern coast.',
   description: 'The September floods displaced thousands of families. This campaign funds water.',
-  location: 'Lokoja, Nigeria',
+  location: 'Les Cayes, Haiti',
+  organizer: 'Haitian community association, Montreal',
   category: 'flood',
 };
 
@@ -70,7 +72,7 @@ describe('API', () => {
       status: 'active',
       raised: '600',
       donorCount: 1,
-      metadata: { title: metadata.title },
+      metadata: { title: metadata.title, organizer: metadata.organizer },
     });
 
     const detail = (await app.inject({ url: '/campaigns/0' })).json();
