@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.env
+.pgdata/
+uploads/
+coverage/
+.DS_Store
+node_modules
