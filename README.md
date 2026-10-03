@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/aidline-org/aidline-frontend/main/public/brand/aidline-wordmark.png" alt="Aidline" width="420">
+</p>
+
 # Aidline Backend
 
 API and Soroban event indexer for **Aidline**, where diaspora communities fund disaster relief and climate work back home, with proof it landed. Built on Stellar.
