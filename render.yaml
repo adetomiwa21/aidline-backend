@@ -1,0 +1,37 @@
+# Render blueprint: API, indexer and Postgres.
+# Values marked sync: false are entered in the Render dashboard on first deploy.
+services:
+  - type: web
+    name: aidline-api
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: '22'
+      - key: DATABASE_URL
+        fromDatabase:
+          name: aidline-db
+          property: connectionString
+      - key: PUBLIC_BASE_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: AIDLINE_NETWORK
+        value: testnet
+      - key: AIDLINE_RPC_URL
+        value: https://soroban-testnet.stellar.org
+      - key: AIDLINE_CONTRACT_ID
+        sync: false
+      - key: AIDLINE_TOKEN_ID
+        value: CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC
+      - key: INDEXER_START_LEDGER
+        sync: false
+
+databases:
+  - name: aidline-db
+    plan: free
+    databaseName: aidline
+    user: aidline
