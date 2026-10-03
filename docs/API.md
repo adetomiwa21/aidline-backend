@@ -38,6 +38,8 @@ Network details the frontend needs: `network`, `networkPassphrase`, `rpcUrl`, `c
 }
 ```
 
+Money held in escrow is `totalDonated - totalReleased - totalRefunded`.
+
 ## Campaigns
 
 ### `GET /campaigns`
