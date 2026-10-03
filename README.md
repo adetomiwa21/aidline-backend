@@ -1,6 +1,6 @@
 # Aidline Backend
 
-API and Soroban event indexer for **Aidline**, transparent funding for disaster relief and climate action on Stellar.
+API and Soroban event indexer for **Aidline**, where diaspora communities fund disaster relief and climate work back home, with proof it landed. Built on Stellar.
 
 The [Aidline contract](https://github.com/aidline-org/aidline-contracts) holds donations in escrow and releases them milestone by milestone after a verifier confirms the work. This service makes that on chain activity easy to use:
 
@@ -56,7 +56,7 @@ Variables are prefixed with `AIDLINE_` on purpose: the Stellar CLI reads `STELLA
 
 ## Demo data
 
-`npm run seed:demo` fills a fresh deployment with five clearly labelled demo campaigns (emergency and climate, open, completed and cancelled), three fictional verifiers and a few donors. It needs the contract admin key:
+`npm run seed:demo` fills a fresh deployment with six clearly labelled demo campaigns raised by diaspora communities for work back home (emergency and climate, open, completed and cancelled), three fictional verifiers and a few donors. It needs the contract admin key:
 
 ```sh
 SEED_ADMIN_SECRET=S... npm run seed:demo
