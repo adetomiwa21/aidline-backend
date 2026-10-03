@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "seed:demo": "tsx --env-file-if-exists=.env scripts/seed-demo.ts"
   },
   "license": "MIT",
   "type": "module",
