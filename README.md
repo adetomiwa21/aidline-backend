@@ -4,6 +4,8 @@
 
 # Aidline Backend
 
+**Live demo:** [aidline-frontend.vercel.app](https://aidline-frontend.vercel.app) · **API:** [aidline-api.onrender.com](https://aidline-api.onrender.com/stats) · Stellar testnet
+
 API and Soroban event indexer for **Aidline**, where diaspora communities fund disaster relief and climate work back home, with proof it landed. Built on Stellar.
 
 The [Aidline contract](https://github.com/aidline-org/aidline-contracts) holds donations in escrow and releases them milestone by milestone after a verifier confirms the work. This service makes that on chain activity easy to use:
@@ -54,9 +56,9 @@ Variables are prefixed with `AIDLINE_` on purpose: the Stellar CLI reads `STELLA
 
 |          |                                                                                                                             |
 | -------- | --------------------------------------------------------------------------------------------------------------------------- |
-| Contract | `CCONZEJF7ZQPC2HPM36WJYCDJAWEZ4EHESV3AEWSQMVX7LWVHYXKTMBW`                                                                  |
+| Contract | `CALNXTTPKPTCCWSTN3NHQNZHPXM2IXQZQMFBCCK7LI3N5FRB6DB5NLHK`                                                                  |
 | Token    | Native XLM (`CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC`)                                                     |
-| Explorer | [stellar.expert](https://stellar.expert/explorer/testnet/contract/CCONZEJF7ZQPC2HPM36WJYCDJAWEZ4EHESV3AEWSQMVX7LWVHYXKTMBW) |
+| Explorer | [stellar.expert](https://stellar.expert/explorer/testnet/contract/CALNXTTPKPTCCWSTN3NHQNZHPXM2IXQZQMFBCCK7LI3N5FRB6DB5NLHK) |
 
 ## Demo data
 
