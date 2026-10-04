@@ -94,6 +94,12 @@ Proof uploads are stored on local disk, which is not persistent on most free hos
 - [Architecture](docs/ARCHITECTURE.md): how the indexer stays consistent, data model, design decisions
 - [Contributing](CONTRIBUTING.md)
 
+## Contributing
+
+Start with [CONTRIBUTING.md](CONTRIBUTING.md).
+
+Browse open work by complexity in [ISSUES.md](ISSUES.md): 30 scoped issues, including good first issues for newcomers.
+
 ## Related repos
 
 | Repo                                                                  |                         |
