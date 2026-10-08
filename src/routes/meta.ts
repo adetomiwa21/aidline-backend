@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { getStatsHistory } from '../indexer/stats.js';
 
 export async function metaRoutes(app: FastifyInstance) {
   app.get('/health', async () => {
@@ -31,5 +32,10 @@ export async function metaRoutes(app: FastifyInstance) {
          (SELECT count(*)::int FROM milestone_releases) AS "milestonesVerified"`,
     );
     return rows[0];
+  });
+
+  app.get('/stats/history', async () => {
+    const history = await getStatsHistory(app.db);
+    return { items: history };
   });
 }

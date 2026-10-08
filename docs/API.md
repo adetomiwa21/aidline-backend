@@ -32,6 +32,7 @@ Network details the frontend needs: `network`, `networkPassphrase`, `rpcUrl`, `c
   "activeCampaigns": 3,
   "totalDonated": "52000000000",
   "totalReleased": "18000000000",
+  "totalRefunded": "0",
   "donors": 11,
   "verifiers": 2,
   "milestonesVerified": 5
@@ -39,6 +40,30 @@ Network details the frontend needs: `network`, `networkPassphrase`, `rpcUrl`, `c
 ```
 
 Money held in escrow is `totalDonated - totalReleased - totalRefunded`.
+
+### `GET /stats/history`
+
+Returns a time series of daily platform statistics snapshots for charting.
+
+```json
+{
+  "items": [
+    {
+      "snapshotDate": "2026-10-08",
+      "campaigns": 4,
+      "activeCampaigns": 3,
+      "totalDonated": "52000000000",
+      "totalReleased": "18000000000",
+      "totalRefunded": "0",
+      "donors": 11,
+      "verifiers": 2,
+      "milestonesVerified": 5
+    }
+  ]
+}
+```
+
+Snapshots are taken once per UTC day. `snapshotDate` is the UTC date of the snapshot (YYYY-MM-DD). Results are ordered chronologically, oldest first. Metrics have the exact same definitions as the `/stats` endpoint.
 
 ## Campaigns
 
