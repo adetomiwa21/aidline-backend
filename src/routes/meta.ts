@@ -1,11 +1,17 @@
 import type { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 
 export async function metaRoutes(app: FastifyInstance) {
+  // #3 – report indexer lag (difference between the chain's latest ledger and the indexed ledger)
   app.get('/health', async () => {
-    const { rows } = await app.db.query<{ last_ledger: number | null }>(
-      'SELECT last_ledger FROM indexer_state WHERE id = 1',
+    const { rows } = await app.db.query<{ last_ledger: number | null; latest_ledger: number | null }>(
+      'SELECT last_ledger, latest_ledger FROM indexer_state WHERE id = 1',
     );
-    return { ok: true, indexedLedger: rows[0]?.last_ledger ?? null };
+    const row = rows[0];
+    const indexedLedger = row?.last_ledger ?? null;
+    const latestLedger = row?.latest_ledger ?? null;
+    const lag = indexedLedger !== null && latestLedger !== null ? latestLedger - indexedLedger : null;
+    return { ok: true, indexedLedger, latestLedger, lag };
   });
 
   /** Everything a frontend needs to talk to the right contract. */
@@ -31,5 +37,23 @@ export async function metaRoutes(app: FastifyInstance) {
          (SELECT count(*)::int FROM milestone_releases) AS "milestonesVerified"`,
     );
     return rows[0];
+  });
+
+  // #25 – daily stats history for charts
+  app.get('/stats/history', async (req) => {
+    const q = z.object({ days: z.coerce.number().int().min(1).max(365).default(30) }).parse(req.query);
+    const { rows } = await app.db.query(
+      `SELECT
+         date::date AS date,
+         campaigns::int,
+         donations::int,
+         "totalDonated",
+         "totalReleased"
+       FROM daily_stats
+       WHERE date >= now() - ($1 || ' days')::interval
+       ORDER BY date ASC`,
+      [q.days],
+    );
+    return { items: rows };
   });
 }
