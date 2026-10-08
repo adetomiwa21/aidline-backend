@@ -1,4 +1,5 @@
 import { mkdirSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
 
 import cors from '@fastify/cors';
@@ -56,6 +57,19 @@ export async function buildApp(
       error: status >= 500 ? 'internal_error' : 'request_error',
       message: status >= 500 ? 'Something went wrong' : (err as Error).message,
     });
+  });
+
+  // #10 – consistent JSON 404 for unknown routes
+  app.setNotFoundHandler((_req, reply) => {
+    return reply.code(404).send({ error: 'not_found', message: 'Route not found' });
+  });
+
+  // #11 – attach a unique X-Request-Id header to every response
+  app.addHook('onSend', (_req, reply, _payload, done) => {
+    if (!reply.hasHeader('x-request-id')) {
+      reply.header('x-request-id', randomUUID());
+    }
+    done();
   });
 
   await app.register(metaRoutes);
