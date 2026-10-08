@@ -69,7 +69,9 @@ Snapshots are taken once per UTC day. `snapshotDate` is the UTC date of the snap
 
 ### `GET /campaigns`
 
-Query: `kind` (`emergency` | `climate`), `status` (`active` | `completed` | `cancelled` | `expired`), `creator`, `verifier`, `limit` (max 100), `offset`.
+Query: `q` (full text search), `kind` (`emergency` | `climate`), `status` (`active` | `completed` | `cancelled` | `expired`), `creator`, `verifier`, `limit` (max 100), `offset`.
+
+When `q` is provided, campaigns are full-text searched across their title, summary, location, and organizer. Results are ranked deterministically by relevance (matches in title rank higher than matches in summary, etc), followed by newest first. When `q` is absent, results are just newest first.
 
 Returns `{ items, total }`. Each item:
 

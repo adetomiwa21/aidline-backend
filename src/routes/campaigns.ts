@@ -74,7 +74,7 @@ export async function campaignRoutes(app: FastifyInstance) {
     // When q.q is blank we skip the clause entirely so existing filters work unchanged.
     if (q.q && q.q.trim().length > 0) {
       params.push(q.q.trim());
-      where.push(`c.search_vector @@ websearch_to_tsquery('english', $${params.length})`);
+      where.push(`m.search_vector @@ websearch_to_tsquery('english', $${params.length})`);
     }
 
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
@@ -83,7 +83,7 @@ export async function campaignRoutes(app: FastifyInstance) {
     // preserve the existing newest-first ordering.
     const orderBy =
       q.q && q.q.trim().length > 0
-        ? `ts_rank(c.search_vector, websearch_to_tsquery('english', ${(() => { params.push(q.q.trim()); return `$${params.length}`; })()})) DESC, c.created_at DESC`
+        ? `ts_rank(m.search_vector, websearch_to_tsquery('english', ${(() => { params.push(q.q.trim()); return `$${params.length}`; })()})) DESC, c.created_at DESC`
         : 'c.created_at DESC';
 
     params.push(q.limit, q.offset);
