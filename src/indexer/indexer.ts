@@ -94,10 +94,11 @@ export class Indexer {
   /** Fetches and applies one page of events. Returns how many events were seen. */
   async syncOnce(): Promise<number> {
     const { db, source, contractId } = this.opts;
-    const state = await db.query<{ cursor: string | null }>(
-      'SELECT cursor FROM indexer_state WHERE id = 1',
+    const state = await db.query<{ cursor: string | null; last_ledger: number | null }>(
+      'SELECT cursor, last_ledger FROM indexer_state WHERE id = 1',
     );
-    const cursor = state.rows[0]?.cursor;
+    const stored = state.rows[0];
+    const cursor = stored?.cursor ?? null;
     const filters: rpc.Api.EventFilter[] = [{ type: 'contract', contractIds: [contractId] }];
 
     let res: rpc.Api.GetEventsResponse;
@@ -127,6 +128,34 @@ export class Indexer {
       // authentication failures, malformed responses, etc.)
       throw err;
     }
+    // #23 – detect cursor out of retention and reset to the oldest available ledger
+    const health = await source.getHealth();
+    let resolvedCursor = cursor;
+    if (cursor) {
+      // Cursor encodes the ledger number as the first segment separated by '-'
+      const cursorLedger = parseInt(cursor.split('-')[0] ?? '0', 10);
+      if (cursorLedger < health.oldestLedger) {
+        this.opts.log.warn(
+          { cursorLedger, oldestLedger: health.oldestLedger },
+          'indexer cursor fell out of RPC retention window – resetting to oldest available ledger',
+        );
+        resolvedCursor = null;
+        await db.query(
+          `INSERT INTO indexer_state (id, cursor, last_ledger, latest_ledger)
+           VALUES (1, NULL, NULL, $1)
+           ON CONFLICT (id) DO UPDATE SET cursor = NULL, last_ledger = NULL, latest_ledger = EXCLUDED.latest_ledger`,
+          [health.latestLedger],
+        );
+      }
+    }
+
+    const res = resolvedCursor
+      ? await source.getEvents({ cursor: resolvedCursor, filters, limit: PAGE_SIZE })
+      : await source.getEvents({
+          startLedger: await this.startLedger(health),
+          filters,
+          limit: PAGE_SIZE,
+        });
 
     const events = res.events.map(decodeEvent).filter((e): e is AidlineEvent => e !== null);
     const campaigns = await this.fetchCampaigns(events);
@@ -142,9 +171,10 @@ export class Indexer {
         await recordEvent(client, ev);
       }
       await client.query(
-        `INSERT INTO indexer_state (id, cursor, last_ledger) VALUES (1, $1, $2)
-         ON CONFLICT (id) DO UPDATE SET cursor = EXCLUDED.cursor, last_ledger = EXCLUDED.last_ledger`,
-        [res.cursor, res.latestLedger],
+        `INSERT INTO indexer_state (id, cursor, last_ledger, latest_ledger) VALUES (1, $1, $2, $3)
+         ON CONFLICT (id) DO UPDATE SET cursor = EXCLUDED.cursor, last_ledger = EXCLUDED.last_ledger,
+           latest_ledger = EXCLUDED.latest_ledger`,
+        [res.cursor, res.latestLedger, health.latestLedger],
       );
       await client.query('COMMIT');
     } catch (err) {
@@ -259,8 +289,8 @@ export class Indexer {
     return new Map(entries);
   }
 
-  private async startLedger(): Promise<number> {
-    const { oldestLedger, latestLedger } = await this.opts.source.getHealth();
+  private async startLedger(health?: { oldestLedger: number; latestLedger: number }): Promise<number> {
+    const { oldestLedger, latestLedger } = health ?? await this.opts.source.getHealth();
     const wanted = this.opts.startLedger ?? latestLedger - 1000;
     // RPC only keeps recent history. Starting before that is an error.
     return Math.max(wanted, oldestLedger);

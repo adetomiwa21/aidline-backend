@@ -3,12 +3,22 @@ import { z } from 'zod';
 
 import { notFound, pagination } from '../lib/http.js';
 
+const SORT_MAP = {
+  newest: 'c.created_at DESC',
+  ending_soon: 'c.deadline ASC',
+  most_funded: 'c.raised DESC',
+} as const;
+
 const listQuery = pagination.extend({
   kind: z.enum(['emergency', 'climate']).optional(),
   status: z.enum(['active', 'completed', 'cancelled', 'expired']).optional(),
   creator: z.string().optional(),
   verifier: z.string().optional(),
   q: z.string().optional(),
+  // #2 – full‑text search across title and location (via tsvector added in migration 003)
+  q: z.string().trim().min(1).optional(),
+  // #9 – sort order
+  sort: z.enum(['newest', 'ending_soon', 'most_funded']).default('newest'),
 });
 
 // "expired" is not stored: it is an active campaign whose deadline has passed.
@@ -76,8 +86,11 @@ export async function campaignRoutes(app: FastifyInstance) {
       params.push(q.q.trim());
       where.push(`m.search_vector @@ websearch_to_tsquery('english', $${params.length})`);
     }
+    // #2 – search by title or location via the tsvector column
+    if (q.q) add(`m.search_vec @@ plainto_tsquery('english', ?)`, q.q);
 
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    const orderSql = SORT_MAP[q.sort];
 
     // When a full-text search term is present, rank by relevance first; otherwise
     // preserve the existing newest-first ordering.
@@ -92,6 +105,7 @@ export async function campaignRoutes(app: FastifyInstance) {
        FROM campaigns c LEFT JOIN campaign_metadata m ON m.id = c.metadata_id
        ${whereSql}
        ORDER BY ${orderBy}
+       ORDER BY ${orderSql}
        LIMIT $${params.length - 1} OFFSET $${params.length}`,
       params,
     );
@@ -244,5 +258,50 @@ export async function campaignRoutes(app: FastifyInstance) {
       .header('Content-Type', 'text/csv; charset=utf-8')
       .header('Content-Disposition', `attachment; filename="campaign-${id.toString()}.csv"`)
       .send(csv);
+  // #1 – list refunds for a campaign
+  app.get('/campaigns/:id/refunds', async (req, reply) => {
+    const { id } = z.object({ id: z.coerce.bigint() }).parse(req.params);
+    const q = pagination.parse(req.query);
+
+    // Verify campaign exists first
+    const { rows: check } = await app.db.query('SELECT 1 FROM campaigns WHERE id = $1', [
+      id.toString(),
+    ]);
+    if (!check.length) return notFound(reply, 'campaign');
+
+    const { rows } = await app.db.query(
+      `SELECT donor, amount, tx_hash AS "txHash", created_at AS "createdAt"
+       FROM refunds WHERE campaign_id = $1
+       ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
+      [id.toString(), q.limit, q.offset],
+    );
+    return { items: rows };
+  });
+
+  // #24 – CSV export of all donations for a campaign (for auditors)
+  app.get('/campaigns/:id/donations.csv', async (req, reply) => {
+    const { id } = z.object({ id: z.coerce.bigint() }).parse(req.params);
+
+    const { rows: check } = await app.db.query('SELECT 1 FROM campaigns WHERE id = $1', [
+      id.toString(),
+    ]);
+    if (!check.length) return notFound(reply, 'campaign');
+
+    const { rows } = await app.db.query(
+      `SELECT donor, amount, tx_hash, created_at
+       FROM donations WHERE campaign_id = $1
+       ORDER BY created_at ASC`,
+      [id.toString()],
+    );
+
+    const header = 'donor,amount,tx_hash,created_at\n';
+    const body = rows
+      .map((r) => `${r.donor},${r.amount},${r.tx_hash},${(r.created_at as Date).toISOString()}`)
+      .join('\n');
+
+    return reply
+      .header('Content-Type', 'text/csv; charset=utf-8')
+      .header('Content-Disposition', `attachment; filename="campaign-${id}-donations.csv"`)
+      .send(header + body);
   });
 }

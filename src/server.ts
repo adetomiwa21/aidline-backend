@@ -4,12 +4,33 @@ import { buildApp } from './app.js';
 import { loadConfig } from './config.js';
 import { migrate } from './db/migrate.js';
 import { createPool } from './db/pool.js';
+import { DailyStatsJob } from './indexer/daily-stats.js';
 import { Indexer } from './indexer/indexer.js';
 import { startDailySnapshotScheduler } from './indexer/stats.js';
 import { AidlineContract } from './stellar/contract.js';
 
 const config = loadConfig();
-const db = createPool(config.DATABASE_URL);
+
+// #15 – retry the database connection at boot with exponential back-off
+async function connectWithRetry(url: string, maxAttempts = 10, baseMs = 1000) {
+  let attempt = 0;
+  while (true) {
+    attempt += 1;
+    try {
+      const pool = createPool(url);
+      // Probe the connection
+      await pool.query('SELECT 1');
+      return pool;
+    } catch (err) {
+      if (attempt >= maxAttempts) throw err;
+      const delay = Math.min(baseMs * 2 ** (attempt - 1), 30_000);
+      console.warn(`[boot] DB not ready (attempt ${attempt}/${maxAttempts}), retrying in ${delay}ms…`);
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+}
+
+const db = await connectWithRetry(config.DATABASE_URL);
 await migrate(db);
 
 const app = await buildApp(config, db, {
@@ -40,6 +61,13 @@ const statsTimer = startDailySnapshotScheduler(db, app.log.child({ module: 'stat
 const shutdown = async () => {
   indexer?.stop();
   clearInterval(statsTimer);
+// #25 – start daily stats snapshot job
+const dailyStats = new DailyStatsJob(db, app.log.child({ module: 'daily-stats' }));
+dailyStats.start();
+
+const shutdown = async () => {
+  indexer?.stop();
+  dailyStats.stop();
   await app.close();
   await db.end();
   process.exit(0);
